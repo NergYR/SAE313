@@ -1,46 +1,57 @@
-$Domain = "DC=butrt1salleH33,DC=lan"
+ $Domain = "butrt1salleH33.lan"
 
- # Définir les données des utilisateurs
+ # OU Paths
+ $OU_AC1 = "OU=Users-BUTRT_Ouest-AC1,OU=BUTRT_Ouest-AC1,DC=butrt1salleH33,DC=lan"
+ $OU_RT1 = "OU=Users-BUTRT_Ouest-RT1,OU=BUTRT_Ouest-RT1,DC=butrt1salleH33,DC=lan"
+ $OU_Groups_AC1 = "OU=Groups-BUTRT_Ouest-AC1,OU=BUTRT_Ouest-AC1,DC=butrt1salleH33,DC=lan"
+ $OU_Groups_RT1 = "OU=Groups-BUTRT_Ouest-RT1,OU=BUTRT_Ouest-RT1,DC=butrt1salleH33,DC=lan"
+
+ # Liste des utilisateurs
  $Users = @(
-     @{ N = 4; Prenom = "Alain";  Nom = "Compta";  samAccountName = "Compta";  OU = "Users-AC1"; Group = "AC-GrU-Compta1" },
-     @{ N = 2; Prenom = "Bernard"; Nom = "Admin";   samAccountName = "Admin";   OU = "Users-AC1"; Group = "AC-GrU-Admins1" },
-     @{ N = 8; Prenom = "Quentin"; Nom = "Other";   samAccountName = "Other";   OU = "Users-AC1"; Group = "AC-GrU-Others1" },
-     @{ N = 15; Prenom = "Mathis"; Nom = "RT1-Etudiant"; samAccountName = "RT1-Etudiant"; OU = "Users-RT1"; Group = "RT1-GrU-Etudiant1" },
-     @{ N = 10; Prenom = "Justin"; Nom = "RT2-Etudiant"; samAccountName = "RT2-Etudiant"; OU = "Users-RT1"; Group = "RT2-GrU-Etudiant1" },
-     @{ N = 4; Prenom = "Anna";   Nom = "RT-Prof1"; samAccountName = "RT-Prof1"; OU = "Users-RT1"; Group = "RT-GrU-Profs1" },
-     @{ N = 6; Prenom = "Thomas"; Nom = "RT-Prof2"; samAccountName = "RT-Prof2"; OU = "Users-RT1"; Group = "RT-GrU-Profs1" }
+     @{N=4; FirstName="Alain"; LastName="Compta"; Group="AC-GrU-Compta1"; OU=$OU_AC1; GroupPath=$OU_Groups_AC1},
+     @{N=2; FirstName="Bernard"; LastName="Admin"; Group="AC-GrU-Admins1"; OU=$OU_AC1; GroupPath=$OU_Groups_AC1},
+     @{N=8; FirstName="Quentin"; LastName="Other"; Group="AC-GrU-Others1"; OU=$OU_AC1; GroupPath=$OU_Groups_AC1},
+     @{N=15; FirstName="Mathis"; LastName="RT1-Etudiant"; Group="RT1-GrU-Etudiant1"; OU=$OU_RT1; GroupPath=$OU_Groups_RT1},
+     @{N=10; FirstName="Justin"; LastName="RT2-Etudiant"; Group="RT2-GrU-Etudiant1"; OU=$OU_RT1; GroupPath=$OU_Groups_RT1},
+     @{N=4; FirstName="Anna"; LastName="RT-Prof1"; Group="RT-GrU-Profs1"; OU=$OU_RT1; GroupPath=$OU_Groups_RT1},
+     @{N=6; FirstName="Thomas"; LastName="RT-Prof2"; Group="RT-GrU-Profs1"; OU=$OU_RT1; GroupPath=$OU_Groups_RT1}
  )
 
- # Parcourir chaque définition et créer les utilisateurs
+ # Mot de passe par défaut pour tous les utilisateurs
+ $DefaultPassword = ConvertTo-SecureString "Password123!" -AsPlainText -Force
+
+ # Boucle pour créer les utilisateurs
  foreach ($User in $Users) {
      for ($i = 1; $i -le $User.N; $i++) {
-         # Générer les propriétés utilisateur
-         $FullName = "$($User.Prenom)-$i $($User.Nom)-$i"
-         $SamAccountName = "$($User.samAccountName)-$i"
-         $OUPath = "OU=$($User.OU),DC=butrt1salleH33,DC=lan"
-         $GroupName = $User.Group
+         $FirstName = "$($User.FirstName)-$i"
+         $LastName = "$($User.LastName)-$i"
+         $SamAccountName = "$($User.FirstName)-$i"
+         $DisplayName = "$FirstName $LastName"
+         $UserPrincipalName = "$SamAccountName@$Domain"
 
+         # Création de l'utilisateur
          try {
-             # Créer l'utilisateur
-             New-ADUser -Name $FullName `
-                        -GivenName "$($User.Prenom)-$i" `
-                        -Surname "$($User.Nom)-$i" `
+             New-ADUser -Name $DisplayName `
+                        -GivenName $FirstName `
+                        -Surname $LastName `
                         -SamAccountName $SamAccountName `
-                        -UserPrincipalName "$SamAccountName@$($Domain -replace 'DC=', '').$($Domain -replace 'DC=', '')" `
-                        -Path $OUPath `
-                        -AccountPassword (ConvertTo-SecureString "Password123!" -AsPlainText -Force) `
+                        -UserPrincipalName $UserPrincipalName `
+                        -Path $User.OU `
+                        -AccountPassword $DefaultPassword `
                         -Enabled $true `
-                        -ChangePasswordAtLogon $true `
-                        -PasswordNeverExpires $false
+                        -ChangePasswordAtLogon $true
 
-             Write-Host "Utilisateur $FullName créé avec succès." -ForegroundColor Green
-
-             # Ajouter l'utilisateur au groupe
-             Add-ADGroupMember -Identity $GroupName -Members $SamAccountName
-             Write-Host "Utilisateur $FullName ajouté au groupe $GroupName." -ForegroundColor Cyan
+             Write-Host "Utilisateur $DisplayName créé avec succès."
+         } catch {
+             Write-Host "Erreur lors de la création de l'utilisateur $DisplayName : $_"
          }
-         catch {
-             Write-Host "Erreur lors de la création de $FullName ou ajout au groupe : $($_.Exception.Message)" -ForegroundColor Red
+
+         # Ajout de l'utilisateur au groupe
+         try {
+             Add-ADGroupMember -Identity $User.Group -Members $SamAccountName
+             Write-Host "Utilisateur $DisplayName ajouté au groupe $($User.Group)."
+         } catch {
+             Write-Host "Erreur lors de l'ajout de $DisplayName au groupe $($User.Group) : $_"
          }
      }
  }
