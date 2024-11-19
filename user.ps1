@@ -1,4 +1,4 @@
- $Domain = "DC=butrt1salleH33,DC=lan"
+$Domain = "DC=butrt1salleH33,DC=lan"
 
  # Définir les données des utilisateurs
  $Users = @(
